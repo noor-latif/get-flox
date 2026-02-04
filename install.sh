@@ -31,6 +31,7 @@ readonly -a STABLE_POETRY=(
   "Your dotfiles, but they actually work when you switch laptops at 2 AM."
   "No more 'let me share my screen' during onboarding. Just... flox activate."
   "Kubernetes at home? Nah. This? This sparks joy."
+   "Small, reliable dev environments that just work."
 )
 
 readonly -a NIGHTLY_POETRY=(
@@ -124,8 +125,9 @@ say "Channel: ${B}${CHANNEL}${N}"
 # ────────────────────────────────────────
 #  Setup & cleanup
 # ────────────────────────────────────────
-tmp=$(mktemp)
-cleanup() { rm -f "$tmp"; }
+# Use a temporary directory so we can control the downloaded filename
+tmpdir=$(mktemp -d)
+cleanup() { rm -rf "$tmpdir"; }
 trap cleanup EXIT INT TERM
 
 # ────────────────────────────────────────
@@ -187,6 +189,10 @@ Quick manual steps:
 "
     fi
 
+    # Ensure the downloaded file has a proper extension so installers
+    # like `apt` accept it. We'll write into our tempdir with a name.
+    tmp="${tmpdir}/flox.${suffix}"
+
     say "Fetching package from the ${CHANNEL} channel…"
 
     # Try architecture-specific package first, then generic
@@ -203,6 +209,11 @@ Quick manual steps:
     done
 
     [[ "$pkg_found" == true && -s "$tmp" ]] || cry "No usable package found in ${CHANNEL}."
+
+    # Make the package file and containing directory world-readable/traversable
+    # so tools like `apt` (which run an unprivileged `_apt` user) can access it.
+    chmod 755 "$(dirname "$tmp")" 2>/dev/null || true
+    chmod 644 "$tmp" 2>/dev/null || true
 
     say "Installing (sudo will ask nicely)…"
     $install_cmd "$tmp" || cry "Package install failed — see error above."
@@ -232,6 +243,7 @@ if command -v flox &>/dev/null; then
   printf '  %sflox install hello%s # add a classic\n' "$C" "$N"
   printf '  %sflox activate%s      # step inside\n' "$C" "$N"
   printf '  %shello%s              # "Hello, world!"\n' "$C" "$N"
+  printf '  %sflox remove hello%s  # clean up\n' "$C"
   printf '\n'
   say "$(random_line "${POETRY[@]}")"
 else

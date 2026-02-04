@@ -2,10 +2,7 @@ name: Install Script Smoke Test
 
 run-name: ${{ github.actor }} is testing Flox install.sh
 
-on:
-  push:
-    paths:
-      - "**/*.sh"
+on: [push]
 
 jobs:
   linux-install:
