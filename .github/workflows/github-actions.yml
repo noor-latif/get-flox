@@ -5,8 +5,12 @@ run-name: ${{ github.actor }} is testing Flox install.sh
 on: [push]
 
 jobs:
-  linux-install:
-    runs-on: ubuntu-latest
+  install:
+    name: Install on ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Check out repository code
         uses: actions/checkout@v5
