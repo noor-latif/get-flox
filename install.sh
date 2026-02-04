@@ -56,6 +56,34 @@ random_line() {
   printf '%s' "${arr[RANDOM % ${#arr[@]}]}"
 }
 
+# spinner & friendly downloader (tty-only animation)
+show_spinner() {
+  local pid=$1; local msg=${2:-working}
+  if [[ ! -t 1 ]]; then
+    return
+  fi
+  local spin=( '⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏' )
+  printf '  %s ' "${msg}"
+  while kill -0 "$pid" 2>/dev/null; do
+    for s in "${spin[@]}"; do
+      printf '%s' "$s"
+      sleep 0.06
+      printf '\b'
+    done
+  done
+  printf '\r' && printf '  ' && printf '\r'
+}
+
+download_with_spinner() {
+  local url=$1
+  say "Fetching: ${url}"
+  (curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o "$tmp" "$url") &
+  local cpid=$!
+  show_spinner "$cpid" "Downloading"
+  wait "$cpid"
+  return $?
+}
+
 usage() {
   cat <<EOF
 Usage: ${0##*/} [OPTIONS]
@@ -112,10 +140,14 @@ fi
 clear 2>/dev/null || true
 
 cat <<EOF
-${C}┌────────────────────────────────────────────┐${N}
-  ${B}Flox${N} — dev environments that travel with you
+${C}      .--.      ${N}
+${C}     / _.-' .-""-._${N}
+${C}    / /     /  🚀  \${N}
+${C}   / /     /  .--.  \${N}
+${C}  /_/     /__/____\__\${N}
+  ${B}Flox — dev environments that travel with you${N}
   ${C}$(random_line "${POETRY[@]}")${N}
-${C}└────────────────────────────────────────────┘${N}
+  ${Y}Hint: Brew, curl, or magic (not included).${N}
 
 EOF
 
@@ -193,8 +225,8 @@ Quick manual steps:
     pkg_found=false
     for pkg in "flox.${arch}-linux.${suffix}" "flox.${suffix}"; do
       url="${channel_url}/${suffix}/${pkg}"
-      say "  Trying → ${pkg}"
-      if curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o "$tmp" "$url" 2>/dev/null; then
+      say "  Trying → ${pkg} (fingers crossed)"
+      if download_with_spinner "$url"; then
         success "Found → ${pkg}"
         pkg_found=true
         break
