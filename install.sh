@@ -7,17 +7,23 @@
 
 set -euo pipefail
 
-# ────────────────────────────────────────
-#  Colors & poetry
-# ────────────────────────────────────────
-C=$(tput setaf 6 2>/dev/null || printf '\033[36m')   # calm cyan
-G=$(tput setaf 2 2>/dev/null || printf '\033[32m')   # success green
-Y=$(tput setaf 3 2>/dev/null || printf '\033[33m')   # warn yellow
-R=$(tput setaf 1 2>/dev/null || printf '\033[31m')   # error red
-B=$(tput bold 2>/dev/null || printf '\033[1m')
-N=$(tput sgr0 2>/dev/null || printf '\033[0m')
+readonly BASE_URL="https://downloads.flox.dev/by-env"
 
-STABLE_POETRY=(
+# ────────────────────────────────────────
+#  Colors & styling (disable if not a tty)
+# ────────────────────────────────────────
+if [[ -t 1 ]]; then
+  C=$(tput setaf 6 2>/dev/null || printf '\033[36m')   # calm cyan
+  G=$(tput setaf 2 2>/dev/null || printf '\033[32m')   # success green
+  Y=$(tput setaf 3 2>/dev/null || printf '\033[33m')   # warn yellow
+  R=$(tput setaf 1 2>/dev/null || printf '\033[31m')   # error red
+  B=$(tput bold 2>/dev/null || printf '\033[1m')
+  N=$(tput sgr0 2>/dev/null || printf '\033[0m')
+else
+  C="" G="" Y="" R="" B="" N=""
+fi
+
+readonly -a STABLE_POETRY=(
   "Because 'works on my machine' should work on ALL machines. Yes, even Jenkins."
   "Dependencies that don't require a PhD in YAML archaeology."
   "It's like Docker, but your laptop battery doesn't burst into flames."
@@ -27,7 +33,7 @@ STABLE_POETRY=(
   "Kubernetes at home? Nah. This? This sparks joy."
 )
 
-NIGHTLY_POETRY=(
+readonly -a NIGHTLY_POETRY=(
   "Nightly builds: for when 'stable' sounds too much like your relationships."
   "YOLO-driven development. We merge to main and pray."
   "Fresh code, hot off the CI/CD pipeline — unit tests TBD."
@@ -37,31 +43,75 @@ NIGHTLY_POETRY=(
   "Bug fixes from the future, bugs from the present. Perfectly balanced."
 )
 
-say()       { echo -e "${C}$*${N}"; }
-success()   { echo -e "${G}✓ $*${N}"; }
-warn()      { echo -e "${Y}⚠ $*${N}"; }
-cry()       { echo -e "${R}✗ $*${N}"; exit 1; }
+# ────────────────────────────────────────
+#  Utility functions
+# ────────────────────────────────────────
+say()       { printf '%b\n' "${C}$*${N}"; }
+success()   { printf '%b\n' "${G}✓ $*${N}"; }
+warn()      { printf '%b\n' "${Y}⚠ $*${N}" >&2; }
+cry()       { printf '%b\n' "${R}✗ $*${N}" >&2; exit 1; }
 
 random_line() {
-  local arr=("$@")
-  echo "${arr[$((RANDOM % ${#arr[@]}))]}"
+  local -a arr=("$@")
+  printf '%s' "${arr[RANDOM % ${#arr[@]}]}"
+}
+
+usage() {
+  cat <<EOF
+Usage: ${0##*/} [OPTIONS]
+
+Install Flox — reproducible environments that travel with you.
+
+Options:
+  --nightly     Install nightly build instead of stable
+  --help, -h    Show this help message
+
+Environment Variables:
+  FLOX_CHANNEL  Set to 'nightly' for nightly builds
+
+Examples:
+  curl -fsSL https://get.flox.dev | bash
+  curl -fsSL https://get.flox.dev | bash -s -- --nightly
+EOF
+  exit 0
+}
+
+detect_arch() {
+  local arch
+  arch=$(uname -m)
+  case "$arch" in
+    x86_64|amd64)  echo "x86_64" ;;
+    aarch64|arm64) echo "aarch64" ;;
+    *)             echo "$arch" ;;
+  esac
 }
 
 # ────────────────────────────────────────
-#  Channel & poetry switch
+#  Parse arguments & configure channel
 # ────────────────────────────────────────
-CHANNEL="stable"
-[[ " $* " =~ " --nightly " || "${FLOX_CHANNEL:-}" = nightly ]] && CHANNEL="nightly"
+CHANNEL="${FLOX_CHANNEL:-stable}"
 
-if [[ $CHANNEL = nightly ]]; then
+for arg in "$@"; do
+  case "$arg" in
+    --nightly)  CHANNEL="nightly" ;;
+    --help|-h)  usage ;;
+    *)          warn "Unknown option: $arg" ;;
+  esac
+done
+
+if [[ $CHANNEL == "nightly" ]]; then
   POETRY=("${NIGHTLY_POETRY[@]}")
 else
+  CHANNEL="stable"
   POETRY=("${STABLE_POETRY[@]}")
 fi
 
+# ────────────────────────────────────────
+#  Display banner
+# ────────────────────────────────────────
 clear 2>/dev/null || true
 
-cat << EOF
+cat <<EOF
 ${C}┌────────────────────────────────────────────┐${N}
   ${B}Flox${N} — dev environments that travel with you
   ${C}$(random_line "${POETRY[@]}")${N}
@@ -69,83 +119,103 @@ ${C}└────────────────────────�
 
 EOF
 
-say "Channel: ${B}$CHANNEL${N}"
+say "Channel: ${B}${CHANNEL}${N}"
 
-tmp=$(mktemp) && trap 'rm -f "$tmp"' EXIT
+# ────────────────────────────────────────
+#  Setup & cleanup
+# ────────────────────────────────────────
+tmp=$(mktemp)
+cleanup() { rm -f "$tmp"; }
+trap cleanup EXIT INT TERM
 
-case "$(uname -s | tr 'A-Z' 'a-z')" in
+# ────────────────────────────────────────
+#  Installation
+# ────────────────────────────────────────
+os=$(uname -s | tr '[:upper:]' '[:lower:]')
+arch=$(detect_arch)
+
+case "$os" in
   darwin)
-    if ! command -v brew >/dev/null; then
+    if ! command -v brew &>/dev/null; then
       warn "Homebrew not found — inviting it over…"
-      NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
+      NONINTERACTIVE=1 /bin/bash -c \
+        "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
         || cry "Homebrew setup didn't finish. See https://brew.sh"
 
-      [[ -x /opt/homebrew/bin/brew ]] && eval "$(/opt/homebrew/bin/brew shellenv)"
-      [[ -x /usr/local/bin/brew  ]]   && eval "$(/usr/local/bin/brew shellenv)"
-      command -v brew >/dev/null || cry "Still no brew — manual time."
+      # Source brew environment for both possible install locations
+      for brew_path in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+        [[ -x "$brew_path" ]] && eval "$("$brew_path" shellenv)" && break
+      done
+
+      command -v brew &>/dev/null || cry "Still no brew — manual installation required."
     fi
 
-    say "Installing Flox the cozy Homebrew way…"
+    say "Installing Flox via Homebrew…"
     brew install flox || cry "brew install flox hit a snag — check above."
     ;;
 
   linux)
-    base="https://downloads.flox.dev/by-env/$CHANNEL"
+    channel_url="${BASE_URL}/${CHANNEL}"
 
+    # Detect package manager
     if [[ -f /etc/debian_version ]]; then
-      family=debian
-      suffix=deb
+      family="debian"
+      suffix="deb"
       install_cmd="sudo apt install -y"
-    elif [[ -f /etc/redhat-release || -x "$(command -v dnf || command -v yum)" ]]; then
-      family=rpm
-      suffix=rpm
+    elif [[ -f /etc/redhat-release ]] || command -v dnf &>/dev/null || command -v yum &>/dev/null; then
+      family="rpm"
+      suffix="rpm"
       install_cmd="sudo rpm -ivh"
-      curl -fsSL "${base}/rpm/flox-archive-keyring.asc" | sudo rpm --import - 2>/dev/null || \
-        warn "Key import skipped (common for nightly)"
+      # Import GPG key for RPM-based systems
+      if curl -fsSL "${channel_url}/rpm/flox-archive-keyring.asc" | sudo rpm --import - 2>/dev/null; then
+        success "GPG key imported"
+      else
+        warn "GPG key import skipped (common for nightly)"
+      fi
     else
-      family=unknown
+      family="unknown"
     fi
 
-    if [[ $family = unknown ]]; then
+    if [[ "$family" == "unknown" ]]; then
       cry "Automatic install not supported on this distro yet.
 
 Quick manual steps:
-  macOS           →  brew install flox
-  Debian/Ubuntu   →  curl -LO ${base}/deb/flox.deb && sudo apt install ./flox.deb
-  RPM family      →  curl -LO ${base}/rpm/flox.rpm && sudo rpm -ivh ./flox.rpm
-  Nix             →  nix profile install github:flox/flox/latest
+  macOS           → brew install flox
+  Debian/Ubuntu   → curl -LO ${channel_url}/deb/flox.deb && sudo apt install ./flox.deb
+  RPM family      → curl -LO ${channel_url}/rpm/flox.rpm && sudo rpm -ivh ./flox.rpm
+  Nix             → nix profile install github:flox/flox/latest
 "
     fi
 
-    say "Fetching package from the $CHANNEL channel…"
+    say "Fetching package from the ${CHANNEL} channel…"
 
-    arch=$(uname -m)
-    [[ $arch = arm64 ]] && arch=aarch64
-
+    # Try architecture-specific package first, then generic
+    pkg_found=false
     for pkg in "flox.${arch}-linux.${suffix}" "flox.${suffix}"; do
-      url="${base}/${suffix}/${pkg}"
-      say "  Trying → $pkg"
+      url="${channel_url}/${suffix}/${pkg}"
+      say "  Trying → ${pkg}"
       if curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o "$tmp" "$url" 2>/dev/null; then
-        success "Found → $pkg"
+        success "Found → ${pkg}"
+        pkg_found=true
         break
       fi
-      warn "$pkg not available…"
+      warn "${pkg} not available…"
     done
 
-    [[ -s "$tmp" ]] || cry "No usable package found in $CHANNEL."
+    [[ "$pkg_found" == true && -s "$tmp" ]] || cry "No usable package found in ${CHANNEL}."
 
     say "Installing (sudo will ask nicely)…"
     $install_cmd "$tmp" || cry "Package install failed — see error above."
     ;;
 
   *)
-    cry "This OS isn't covered by auto-install yet.
+    cry "This OS ('${os}') isn't covered by auto-install yet.
 
 Manual options:
-  brew install flox                 # macOS
-  curl -LO ${base}/deb/flox.deb     && sudo apt install ./flox.deb
-  curl -LO ${base}/rpm/flox.rpm     && sudo rpm -ivh ./flox.rpm
-  nix profile install github:flox/flox/latest
+  macOS       → brew install flox
+  Debian      → curl -LO ${BASE_URL}/stable/deb/flox.deb && sudo apt install ./flox.deb
+  RPM family  → curl -LO ${BASE_URL}/stable/rpm/flox.rpm && sudo rpm -ivh ./flox.rpm
+  Nix         → nix profile install github:flox/flox/latest
 "
     ;;
 esac
@@ -153,18 +223,18 @@ esac
 # ────────────────────────────────────────
 #  Victory lap
 # ────────────────────────────────────────
-if command -v flox >/dev/null; then
+if command -v flox &>/dev/null; then
   success "Flox is ready!"
   flox --version | sed 's/^/  /'
-  echo ""
+  printf '\n'
   say "First steps:"
-  echo "  ${C}flox init${N}          # create your environment"
-  echo "  ${C}flox install hello${N} # add a classic"
-  echo "  ${C}flox activate${N}      # step inside"
-  echo ""
+  printf '  %sflox init%s          # create your environment\n' "$C" "$N"
+  printf '  %sflox install hello%s # add a classic\n' "$C" "$N"
+  printf '  %sflox activate%s      # step inside\n' "$C" "$N"
+  printf '\n'
   say "$(random_line "${POETRY[@]}")"
 else
-  warn "'flox' not found in PATH yet. Restart shell or check output."
+  warn "'flox' not found in PATH yet. Restart your shell or check the output above."
 fi
 
-echo ""
+printf '\n'
