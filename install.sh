@@ -54,7 +54,12 @@ cry()       { printf '%b\n' "${R}✗ $*${N}" >&2; exit 1; }
 
 random_line() {
   local -a arr=("$@")
-  printf '%s' "${arr[RANDOM % ${#arr[@]}]}"
+  local line
+  line="${arr[RANDOM % ${#arr[@]}]}"
+  # Trim leading/trailing whitespace
+  line="${line#${line%%[![:space:]]*}}"
+  line="${line%${line##*[![:space:]]}}"
+  printf '%s' "$line"
 }
 
 usage() {
@@ -117,7 +122,6 @@ ${C}┌────────────────────────�
   ${B}Flox${N} — dev environments that travel with you
   ${C}$(random_line "${POETRY[@]}")${N}
 ${C}└────────────────────────────────────────────┘${N}
-
 EOF
 
 say "Channel: ${B}${CHANNEL}${N}"
@@ -193,13 +197,11 @@ Quick manual steps:
     # like `apt` accept it. We'll write into our tempdir with a name.
     tmp="${tmpdir}/flox.${suffix}"
 
-    say "Fetching package from the ${CHANNEL} channel…"
 
     # Try architecture-specific package first, then generic
     pkg_found=false
     for pkg in "flox.${arch}-linux.${suffix}" "flox.${suffix}"; do
       url="${channel_url}/${suffix}/${pkg}"
-      say "  Trying → ${pkg}"
       if curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o "$tmp" "$url" 2>/dev/null; then
         success "Found → ${pkg}"
         pkg_found=true
@@ -211,12 +213,24 @@ Quick manual steps:
     [[ "$pkg_found" == true && -s "$tmp" ]] || cry "No usable package found in ${CHANNEL}."
 
     # Make the package file and containing directory world-readable/traversable
-    # so tools like `apt` (which run an unprivileged `_apt` user) can access it.
+    # so tools like `_apt` can access it.
     chmod 755 "$(dirname "$tmp")" 2>/dev/null || true
     chmod 644 "$tmp" 2>/dev/null || true
 
-    say "Installing (sudo will ask nicely)…"
-    $install_cmd "$tmp" || cry "Package install failed — see error above."
+    # Perform a quiet install. Use apt-get -qq to reduce noise; on failure
+    # retry with full output so the user can see errors.
+    if [[ "$family" == "debian" ]]; then
+      say "Installing. sudo will ask nicely…"
+      if DEBIAN_FRONTEND=noninteractive sudo apt-get install -y -qq --no-install-recommends "$tmp" >/dev/null 2>&1; then
+        success "Package installed"
+      else
+        warn "Quiet install failed — retrying with output"
+        DEBIAN_FRONTEND=noninteractive sudo apt-get install -y "$tmp" || cry "Package install failed — see error above."
+      fi
+    else
+      say "Installing. sudo will ask nicely…"
+      $install_cmd "$tmp" || cry "Package install failed — see error above."
+    fi
     ;;
 
   *)
@@ -237,13 +251,12 @@ esac
 if command -v flox &>/dev/null; then
   success "Flox is ready!"
   flox --version | sed 's/^/  /'
-  printf '\n'
   say "First steps:"
   printf '  %sflox init%s          # create your environment\n' "$C" "$N"
   printf '  %sflox install hello%s # add a classic\n' "$C" "$N"
   printf '  %sflox activate%s      # step inside\n' "$C" "$N"
   printf '  %shello%s              # "Hello, world!"\n' "$C" "$N"
-  printf '  %sflox remove hello%s  # clean up\n' "$C"
+  printf '  %sflox remove hello%s  # clean up\n' "$C" "$N"
   printf '\n'
   say "$(random_line "${POETRY[@]}")"
 else
