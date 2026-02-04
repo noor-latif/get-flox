@@ -231,6 +231,7 @@ if command -v flox &>/dev/null; then
   printf '  %sflox init%s          # create your environment\n' "$C" "$N"
   printf '  %sflox install hello%s # add a classic\n' "$C" "$N"
   printf '  %sflox activate%s      # step inside\n' "$C" "$N"
+  printf '  %shello%s              # "Hello, world!"\n' "$C" "$N"
   printf '\n'
   say "$(random_line "${POETRY[@]}")"
 else
