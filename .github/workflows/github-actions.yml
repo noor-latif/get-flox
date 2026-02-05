@@ -52,7 +52,6 @@ jobs:
   nix:
     name: Nix smoke (flake)
     runs-on: ubuntu-latest
-    needs: install
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
