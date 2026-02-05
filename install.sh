@@ -62,6 +62,23 @@ random_line() {
   printf '%s' "$line"
 }
 
+# Check for available commands
+has() { command -v "$1" >/dev/null 2>&1; }
+
+# Download helper with curl/wget fallback and retries for robustness
+download_to() {
+  local url="$1" out="$2"
+  if has curl; then
+    curl --proto '=https' --tlsv1.2 -fsSL --retry 3 --retry-delay 1 -o "$out" "$url"
+    return $?
+  elif has wget; then
+    wget -q -O "$out" "$url"
+    return $?
+  else
+    return 127
+  fi
+}
+
 usage() {
   cat <<EOF
 Usage: ${0##*/} [OPTIONS]
@@ -134,6 +151,13 @@ tmpdir=$(mktemp -d)
 cleanup() { rm -rf "$tmpdir"; }
 trap cleanup EXIT INT TERM
 
+# Prefer sudo when not running as root
+if [[ $(id -u) -eq 0 ]]; then
+  SUDO=""
+else
+  SUDO="sudo"
+fi
+
 # ────────────────────────────────────────
 #  Installation
 # ────────────────────────────────────────
@@ -173,10 +197,15 @@ case "$os" in
       suffix="rpm"
       install_cmd="sudo rpm -ivh"
       # Import GPG key for RPM-based systems
-      if curl -fsSL "${channel_url}/rpm/flox-archive-keyring.asc" | sudo rpm --import - 2>/dev/null; then
-        success "GPG key imported"
+      tmpkey="${tmpdir}/flox-archive-keyring.asc"
+      if download_to "${channel_url}/rpm/flox-archive-keyring.asc" "$tmpkey" 2>/dev/null; then
+        if $SUDO rpm --import "$tmpkey" 2>/dev/null; then
+          success "GPG key imported"
+        else
+          warn "GPG key import skipped (import failed)"
+        fi
       else
-        warn "GPG key import skipped (common for nightly)"
+        warn "GPG key download skipped (common for nightly)"
       fi
     else
       family="unknown"
@@ -202,7 +231,7 @@ Quick manual steps:
     pkg_found=false
     for pkg in "flox.${arch}-linux.${suffix}" "flox.${suffix}"; do
       url="${channel_url}/${suffix}/${pkg}"
-      if curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o "$tmp" "$url" 2>/dev/null; then
+      if download_to "$url" "$tmp" 2>/dev/null; then
         success "Found → ${pkg}"
         pkg_found=true
         break
@@ -217,15 +246,32 @@ Quick manual steps:
     chmod 755 "$(dirname "$tmp")" 2>/dev/null || true
     chmod 644 "$tmp" 2>/dev/null || true
 
-    # Perform a quiet install. Use apt-get -qq to reduce noise; on failure
-    # retry with full output so the user can see errors.
+    # Install using the canonical local-deb form: `apt install ./pkg.deb`.
+    # Run a quiet install first, retry verbose on failure, then fall back
+    # to `dpkg -i` + `apt-get install -f -y` if apt fails.
     if [[ "$family" == "debian" ]]; then
+      dir="$(dirname "$tmp")"
+      file="$(basename "$tmp")"
       say "Installing. sudo will ask nicely…"
-      if DEBIAN_FRONTEND=noninteractive sudo apt-get install -y -qq --no-install-recommends "$tmp" >/dev/null 2>&1; then
+      if (cd "$dir" && DEBIAN_FRONTEND=noninteractive sudo apt install -y -qq "./$file" >/dev/null 2>&1); then
         success "Package installed"
       else
         warn "Quiet install failed — retrying with output"
-        DEBIAN_FRONTEND=noninteractive sudo apt-get install -y "$tmp" || cry "Package install failed — see error above."
+        if (cd "$dir" && DEBIAN_FRONTEND=noninteractive sudo apt install -y "./$file"); then
+          success "Package installed"
+        else
+          warn "apt install failed — attempting dpkg fallback"
+          if (cd "$dir" && sudo dpkg -i "./$file"); then
+            # Fix any missing dependencies
+            if sudo apt-get install -f -y; then
+              success "Package installed (dpkg + apt -f)"
+            else
+              cry "dpkg install succeeded but fixing dependencies failed — see error above."
+            fi
+          else
+            cry "Package install failed — see error above."
+          fi
+        fi
       fi
     else
       say "Installing. sudo will ask nicely…"
