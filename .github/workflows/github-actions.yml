@@ -1,4 +1,4 @@
-name: Install Script Smoke Test
+name: Flox Installer Smoke Test
 
 run-name: ${{ github.actor }} is testing Flox install.sh
 
@@ -56,11 +56,11 @@ jobs:
         run: |
           set -euo pipefail
           echo 'Attempting Determinate Nix installer...'
-          if curl -fsSL https://install.determinate.systems/nix | sh -s -- install --yes; then
+          if curl -fsSL https://install.determinate.systems/nix | sh -s -- install --yes --no-confirm; then
             echo 'Determinate installer succeeded.'
           else
             echo 'Determinate installer failed — falling back to official Nix installer.'
-            curl -fsSL https://releases.nixos.org/nix/install | sh
+            curl -L https://nixos.org/nix/install | sh
           fi
           # Source the profile for subsequent nix commands (single-user)
           if [ -f "$HOME/.nix-profile/etc/profile.d/nix.sh" ]; then
