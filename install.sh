@@ -38,12 +38,18 @@ cleanup_tmpfiles() {
 trap cleanup_tmpfiles EXIT
 
 mktempfile() {
+  local suffix="${1:-}"
   local f
   if has mktemp; then
     f="$(mktemp 2>/dev/null || true)"
+    if [[ -n "$f" && -n "$suffix" ]]; then
+      mv "$f" "${f}.${suffix}"
+      f="${f}.${suffix}"
+    fi
   fi
   if [ -z "${f:-}" ]; then
     f="/tmp/flox.$RANDOM.$$"
+    [[ -n "$suffix" ]] && f="${f}.${suffix}"
     : >"$f" 2>/dev/null || true
   fi
   TMPFILES+=("$f")
@@ -196,13 +202,24 @@ else # No Nix detected, proceed with native installers
     if [[ -f /etc/debian_version ]]; then
       family="debian"
       suffix="deb"
+      # Ensure apt cache is updated if we're likely to need dependencies
+      if ! has xz || ! has sudo; then
+        say "Updating package lists…"
+        $SUDO apt-get update -qq || true
+      fi
       install_cmd="$SUDO apt install -y"
     elif [[ -f /etc/redhat-release ]] || command -v dnf &>/dev/null || command -v yum &>/dev/null; then
       family="rpm"
       suffix="rpm"
-      install_cmd="$SUDO rpm -ivh"
+      if has dnf; then
+        install_cmd="$SUDO dnf install -y"
+      elif has yum; then
+        install_cmd="$SUDO yum install -y"
+      else
+        install_cmd="$SUDO rpm -ivh"
+      fi
       # Import GPG key for RPM-based systems
-      tmpkey="$(mktempfile)"
+      tmpkey="$(mktempfile "asc")"
       if download_to "${channel_url}/rpm/flox-archive-keyring.asc" "$tmpkey" 2>/dev/null; then
         if $SUDO rpm --import "$tmpkey" 2>/dev/null; then
           success "GPG key imported"
@@ -225,7 +242,7 @@ Quick manual steps:
 "
     fi
 
-    tmp="$(mktempfile)"
+    tmp="$(mktempfile "$suffix")"
 
     # Try architecture-specific package first, then generic
     pkg_found=false

@@ -69,7 +69,7 @@ jobs:
         if: matrix.type == 'deb-container'
         run: |
           docker run --rm -v "${{ github.workspace }}":/workspace -w /workspace ${{ matrix.container }} \
-            /bin/bash -eux -c "apt-get update && apt-get install -y curl sudo && bash install.sh && flox --version"
+            /bin/bash -eux -c "if ! command -v curl &>/dev/null; then apt-get update && apt-get install -y curl; fi; bash install.sh && flox --version"
 
       - name: Run install.sh (Containerized RPM)
         if: matrix.type == 'rpm' || matrix.type == 'rpm-container'
@@ -78,7 +78,7 @@ jobs:
           container_image="${{ matrix.container }}"
           [[ -z "$container_image" ]] && container_image="registry.fedoraproject.org/fedora:latest"
           docker run --rm -v "${{ github.workspace }}":/workspace -w /workspace $container_image \
-            /bin/bash -eux -c "dnf -y install curl sudo || yum -y install curl sudo || apt-get update && apt-get install -y curl sudo; bash install.sh && flox --version"
+            /bin/bash -eux -c "if ! command -v curl &>/dev/null; then if command -v dnf &>/dev/null; then dnf -y install curl; elif command -v yum &>/dev/null; then yum -y install curl; fi; fi; bash install.sh && flox --version"
 
       - name: Verify flox is available (host)
         if: matrix.type == 'deb' || matrix.type == 'darwin'
