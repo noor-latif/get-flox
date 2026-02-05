@@ -100,11 +100,73 @@ else
   SUDO="sudo"
 fi
 
-# Installation
 os=$(uname -s | tr '[:upper:]' '[:lower:]')
 arch=$(detect_arch)
 
-case "$os" in
+# Nix support: follow official guidance — use `nix profile install`
+if [[ -f /etc/os-release ]] && grep -qi '^ID=nixos' /etc/os-release 2>/dev/null || [[ -f /etc/NIXOS ]] || has nix; then
+  say "Detected Nix — installing via nix profile…"
+  if ! has nix; then
+    cry "Nix not found. Please install Nix first: https://nixos.org/download.html"
+  fi
+
+  NX_FLAGS=(--experimental-features 'nix-command flakes' --accept-flake-config 'github:flox/flox/latest')
+
+  # Configure Flox binary cache / substituters when possible.
+  FLOX_SUBSTITUTER_URL="https://cache.flox.dev"
+  FLOX_PUBLIC_KEY="flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GEed86nQ7IsOs="
+
+  if [[ $(id -u) -eq 0 ]]; then
+    # On NixOS we recommend adding the values to /etc/nixos/configuration.nix
+    # and running `sudo nixos-rebuild switch`. Editing that file
+    # automatically is dangerous, so we only notify the admin if missing.
+    if grep -qi '^ID=nixos' /etc/os-release 2>/dev/null || [[ -f /etc/NIXOS ]]; then
+      if ! grep -qF "$FLOX_SUBSTITUTER_URL" /etc/nixos/configuration.nix 2>/dev/null; then
+        warn "Flox binary cache not configured in /etc/nixos/configuration.nix."
+        say "Add the following to /etc/nixos/configuration.nix and run 'sudo nixos-rebuild switch':"
+        printf '\n  nix.settings.trusted-substituters = [ "%s" ];\n  nix.settings.trusted-public-keys = [ "%s" ];\n\n' "$FLOX_SUBSTITUTER_URL" "$FLOX_PUBLIC_KEY"
+      fi
+    else
+      # Generic Nix: ensure /etc/nix/nix.conf contains the substituters
+      if [ -w /etc/nix ] || [ ! -e /etc/nix/nix.conf ]; then
+        mkdir -p /etc/nix 2>/dev/null || true
+        if ! grep -qF "$FLOX_SUBSTITUTER_URL" /etc/nix/nix.conf 2>/dev/null; then
+          say "Adding Flox substituters to /etc/nix/nix.conf"
+          cp /etc/nix/nix.conf /etc/nix/nix.conf.bak 2>/dev/null || true
+          printf '\nextra-trusted-substituters = %s\nextra-trusted-public-keys = %s\n' "$FLOX_SUBSTITUTER_URL" "$FLOX_PUBLIC_KEY" >> /etc/nix/nix.conf
+          # Restart nix-daemon
+          if [[ "$os" == "darwin" ]]; then
+            $SUDO launchctl kickstart -k system/org.nixos.nix-daemon 2>/dev/null || true
+          elif command -v systemctl &>/dev/null && systemctl is-active --quiet nix-daemon; then
+            systemctl restart nix-daemon.socket || true
+          fi
+        fi
+      else
+        warn "Cannot write /etc/nix/nix.conf — please add Flox cache substituters manually."
+      fi
+    fi
+  fi
+
+  if [[ $(id -u) -eq 0 ]]; then
+    say "Installing Flox system-wide (default profile)"
+    if nix profile add --profile /nix/var/nix/profiles/default "${NX_FLAGS[@]}"; then
+      success "Flox installed system-wide via Nix"
+      export PATH="/nix/var/nix/profiles/default/bin:$PATH"
+    else
+      cry "System-wide Nix install failed — see nix output above."
+    fi
+  else
+    say "Installing Flox into the current user's profile"
+    if nix profile add "${NX_FLAGS[@]}"; then
+      success "Flox installed to user profile via Nix"
+      export PATH="$HOME/.nix-profile/bin:$PATH"
+    else
+      cry "User-profile Nix install failed — see nix output above."
+    fi
+  fi
+else # No Nix detected, proceed with native installers
+  # Installation
+  case "$os" in
   darwin)
     if ! command -v brew &>/dev/null; then
       warn "Homebrew not found — inviting it over…"
@@ -129,67 +191,6 @@ case "$os" in
 
   linux)
     channel_url="${BASE_URL}/${CHANNEL}"
-
-    # Nix support: follow official guidance — use `nix profile install`
-    if [[ -f /etc/os-release ]] && grep -qi '^ID=nixos' /etc/os-release 2>/dev/null || [[ -f /etc/NIXOS ]] || has nix; then
-      say "Detected Nix/NixOS — installing via nix profile…"
-      if ! has nix; then
-        cry "Nix not found. Please install Nix first: https://nixos.org/download.html"
-      fi
-
-      NX_FLAGS=(--experimental-features 'nix-command flakes' --accept-flake-config 'github:flox/flox/latest')
-
-      # Configure Flox binary cache / substituters when possible.
-      FLOX_SUBSTITUTER_URL="https://cache.flox.dev"
-      FLOX_PUBLIC_KEY="flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GEed86nQ7IsOs="
-
-      if [[ $(id -u) -eq 0 ]]; then
-        # On NixOS we recommend adding the values to /etc/nixos/configuration.nix
-        # and running `sudo nixos-rebuild switch`. Editing that file
-        # automatically is dangerous, so we only notify the admin if missing.
-        if grep -qi '^ID=nixos' /etc/os-release 2>/dev/null || [[ -f /etc/NIXOS ]]; then
-          if ! grep -qF "$FLOX_SUBSTITUTER_URL" /etc/nixos/configuration.nix 2>/dev/null; then
-            warn "Flox binary cache not configured in /etc/nixos/configuration.nix."
-            say "Add the following to /etc/nixos/configuration.nix and run 'sudo nixos-rebuild switch':"
-            printf '\n  nix.settings.trusted-substituters = [ "%s" ];\n  nix.settings.trusted-public-keys = [ "%s" ];\n\n' "$FLOX_SUBSTITUTER_URL" "$FLOX_PUBLIC_KEY"
-          fi
-        else
-          # Generic Nix: ensure /etc/nix/nix.conf contains the substituters
-          if [ -w /etc/nix ] || [ ! -e /etc/nix/nix.conf ]; then
-            mkdir -p /etc/nix 2>/dev/null || true
-            if ! grep -qF "$FLOX_SUBSTITUTER_URL" /etc/nix/nix.conf 2>/dev/null; then
-              say "Adding Flox substituters to /etc/nix/nix.conf"
-              cp /etc/nix/nix.conf /etc/nix/nix.conf.bak 2>/dev/null || true
-              printf '\nextra-trusted-substituters = %s\nextra-trusted-public-keys = %s\n' "$FLOX_SUBSTITUTER_URL" "$FLOX_PUBLIC_KEY" >> /etc/nix/nix.conf
-              # Restart nix-daemon if present
-              if command -v systemctl &>/dev/null && systemctl is-active --quiet nix-daemon; then
-                systemctl restart nix-daemon.socket || true
-              fi
-            fi
-          else
-            warn "Cannot write /etc/nix/nix.conf — please add Flox cache substituters manually."
-          fi
-        fi
-      fi
-
-      if [[ $(id -u) -eq 0 ]]; then
-        say "Installing Flox system-wide (default profile)"
-        if nix profile add --profile /nix/var/nix/profiles/default "${NX_FLAGS[@]}"; then
-          success "Flox installed system-wide via Nix"
-          exit 0
-        else
-          cry "System-wide Nix install failed — see nix output above."
-        fi
-      else
-        say "Installing Flox into the current user's profile"
-        if nix profile add "${NX_FLAGS[@]}"; then
-          success "Flox installed to user profile via Nix"
-          exit 0
-        else
-          cry "User-profile Nix install failed — see nix output above."
-        fi
-      fi
-    fi
 
     # Detect package manager
     if [[ -f /etc/debian_version ]]; then
@@ -289,6 +290,7 @@ Manual options:
 "
     ;;
 esac
+fi
 
 # Victory lap
 if command -v flox &>/dev/null; then

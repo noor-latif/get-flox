@@ -77,3 +77,18 @@ jobs:
           docker run --rm -v "${{ github.workspace }}":/workspace -w /workspace \
             nixos/nix:latest \
             /bin/sh -eux -c "bash install.sh && flox --version"
+
+  macos-nix:
+    name: Install on macOS with Determinate Nix
+    runs-on: macos-14
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/nix-installer-action@v14
+      - name: Run install.sh
+        run: |
+          bash install.sh
+      - name: Verify flox
+        run: |
+          flox --version
