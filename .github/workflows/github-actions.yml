@@ -50,17 +50,17 @@ jobs:
           flox --version
 
   nix:
-    name: Nix smoke (flake)
+    name: Install on NixOS
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
       - name: Show flake (in NixOS container)
         run: |
-          docker run --rm -v "${{ github.workspace }}":/workspace -w /workspace nixos/nix:latest \
+          docker run --rm -u $(id -u):$(id -g) -v "${{ github.workspace }}":/workspace -w /workspace nixos/nix:latest \
             /bin/sh -eux -c "nix --extra-experimental-features 'nix-command flakes' flake show"
 
       - name: Run devShell and lint (in NixOS container)
         run: |
-          docker run --rm -v "${{ github.workspace }}":/workspace -w /workspace nixos/nix:latest \
+          docker run --rm -u $(id -u):$(id -g) -v "${{ github.workspace }}":/workspace -w /workspace nixos/nix:latest \
             /bin/sh -eux -c "nix --extra-experimental-features 'nix-command flakes' develop .#devShells.x86_64-linux --command shellcheck install.sh"
