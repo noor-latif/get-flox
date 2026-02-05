@@ -56,11 +56,11 @@ jobs:
         run: |
           set -euo pipefail
           echo 'Attempting Determinate Nix installer...'
-          if curl -fsSL https://install.determinate.systems/nix | sh -s -- install --yes --no-confirm; then
+          if curl -fsSL https://install.determinate.systems/nix | sh -s -- install --no-confirm; then
             echo 'Determinate installer succeeded.'
           else
             echo 'Determinate installer failed — falling back to official Nix installer.'
-            curl -L https://nixos.org/nix/install | sh
+            curl -L https://nixos.org/nix/install | sh -s -- --no-daemon --yes
           fi
           # Source the profile for subsequent nix commands (single-user)
           if [ -f "$HOME/.nix-profile/etc/profile.d/nix.sh" ]; then
@@ -68,8 +68,11 @@ jobs:
           fi
 
       - name: Show flake
-        run: nix --extra-experimental-features 'nix-command flakes' flake show
+        run: |
+          . "$HOME/.nix-profile/etc/profile.d/nix.sh"
+          nix --extra-experimental-features 'nix-command flakes' flake show
 
       - name: Run devShell and lint
         run: |
+          . "$HOME/.nix-profile/etc/profile.d/nix.sh"
           nix --extra-experimental-features 'nix-command flakes' develop .#devShells.x86_64-linux --command shellcheck install.sh
