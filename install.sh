@@ -130,11 +130,9 @@ case "$os" in
   linux)
     channel_url="${BASE_URL}/${CHANNEL}"
 
-    # NixOS support: follow official guidance — use `nix profile install` with
-    # experimental features and accept the flake config. Install system-wide
-    # when running as root, otherwise install into the personal profile.
-    if [[ -f /etc/os-release ]] && grep -qi '^ID=nixos' /etc/os-release 2>/dev/null || [[ -f /etc/NIXOS ]]; then
-      say "Detected NixOS — installing via nix profile…"
+    # Nix support: follow official guidance — use `nix profile install`
+    if [[ -f /etc/os-release ]] && grep -qi '^ID=nixos' /etc/os-release 2>/dev/null || [[ -f /etc/NIXOS ]] || has nix; then
+      say "Detected Nix/NixOS — installing via nix profile…"
       if ! has nix; then
         cry "Nix not found. Please install Nix first: https://nixos.org/download.html"
       fi
