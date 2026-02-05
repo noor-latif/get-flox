@@ -174,7 +174,7 @@ case "$os" in
 
       if [[ $(id -u) -eq 0 ]]; then
         say "Installing Flox system-wide (default profile)"
-        if nix profile install --profile /nix/var/nix/profiles/default "${NX_FLAGS[@]}"; then
+        if nix profile add --profile /nix/var/nix/profiles/default "${NX_FLAGS[@]}"; then
           success "Flox installed system-wide via Nix"
           exit 0
         else
@@ -182,7 +182,7 @@ case "$os" in
         fi
       else
         say "Installing Flox into the current user's profile"
-        if nix profile install "${NX_FLAGS[@]}"; then
+        if nix profile add "${NX_FLAGS[@]}"; then
           success "Flox installed to user profile via Nix"
           exit 0
         else
