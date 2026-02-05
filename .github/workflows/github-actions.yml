@@ -56,14 +56,9 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-      - name: Show flake (in NixOS container)
-        run: |
-          docker run --rm -v "${{ github.workspace }}":/workspace -w /workspace \
-            nixos/nix:latest \
-            /bin/sh -eux -c "nix --extra-experimental-features 'nix-command flakes' flake show"
 
-      - name: Run devShell and lint (in NixOS container)
+      - name: Run install.sh and verify flox
         run: |
           docker run --rm -v "${{ github.workspace }}":/workspace -w /workspace \
             nixos/nix:latest \
-            /bin/sh -eux -c "nix --extra-experimental-features 'nix-command flakes' develop .#devShells.x86_64-linux --command shellcheck install.sh"
+            /bin/sh -eux -c "bash install.sh && flox --version"
