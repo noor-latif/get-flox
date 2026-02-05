@@ -52,10 +52,20 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Setup Nix (enable flakes)
-        uses: nix/setup-nix@v2
-        with:
-          extra_nix_config: 'experimental-features = nix-command flakes'
+      - name: Install Determinate Nix (flakes-enabled) with fallback
+        run: |
+          set -euo pipefail
+          echo 'Attempting Determinate Nix installer...'
+          if curl -fsSL https://install.determinate.systems/nix | sh -s -- install --yes; then
+            echo 'Determinate installer succeeded.'
+          else
+            echo 'Determinate installer failed — falling back to official Nix installer.'
+            curl -fsSL https://releases.nixos.org/nix/install | sh
+          fi
+          # Source the profile for subsequent nix commands (single-user)
+          if [ -f "$HOME/.nix-profile/etc/profile.d/nix.sh" ]; then
+            . "$HOME/.nix-profile/etc/profile.d/nix.sh"
+          fi
 
       - name: Show flake
         run: nix --extra-experimental-features 'nix-command flakes' flake show
