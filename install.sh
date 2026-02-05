@@ -295,7 +295,8 @@ fi
 # Victory lap
 if command -v flox &>/dev/null; then
   success "Flox is ready!"
-  flox --version | sed 's/^/  /'
+  # Indent version info without external dependencies like sed
+  flox --version | while read -r line; do printf "  %s\n" "$line"; done
   say "First steps:"
   printf '  %sflox init%s          # create your environment\n' "$C" "$N"
   printf '  %sflox install hello%s # add a classic\n' "$C" "$N"

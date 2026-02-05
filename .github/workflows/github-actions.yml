@@ -8,6 +8,7 @@ jobs:
   install:
     name: Install on ${{ matrix.name }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: ubuntu-24.04
@@ -23,16 +24,16 @@ jobs:
             runs_on: ubuntu-22.04-arm64
             type: deb
           - name: macos-15-arm64
-            runs_on: macos-15
+            runs_on: macos-latest
             type: darwin
             arch: aarch64
+          - name: macos-15-intel
+            runs_on: macos-15
+            type: darwin
           - name: macos-14-arm64
             runs_on: macos-14
             type: darwin
             arch: aarch64
-          - name: macos-13-x86_64
-            runs_on: macos-13
-            type: darwin
           - name: fedora-x86_64
             runs_on: ubuntu-latest
             type: rpm
@@ -65,22 +66,24 @@ jobs:
   nix:
     name: Install on NixOS (${{ matrix.runs_on }})
     strategy:
+      fail-fast: false
       matrix:
         runs_on: [ubuntu-latest, ubuntu-24.04-arm64]
     runs-on: ${{ matrix.runs_on }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Run install.sh and verify flox
         run: |
+          # Use /bin/bash directly and rely on script internal verification
           docker run --rm -v "${{ github.workspace }}":/workspace -w /workspace \
             nixos/nix:latest \
-            /bin/sh -eux -c "bash install.sh && flox --version"
+            /bin/bash -eux ./install.sh
 
   macos-nix:
     name: Install on macOS with Determinate Nix
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
