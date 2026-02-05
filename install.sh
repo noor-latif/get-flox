@@ -1,17 +1,12 @@
 #!/usr/bin/env bash
 #
-#    Flox — reproducible environments that travel with you
-#    curl -fsSL https://get.flox.dev | bash
-#    curl -fsSL https://get.flox.dev | bash -s -- --nightly   (send coffee)
-#
+# Flox — reproducible environments installer
 
 set -euo pipefail
 
 readonly BASE_URL="https://downloads.flox.dev/by-env"
 
-# ────────────────────────────────────────
-#  Colors & styling (disable if not a tty)
-# ────────────────────────────────────────
+# Colors & styling (disable if not a tty)
 if [[ -t 1 ]]; then
   C=$(tput setaf 6 2>/dev/null || printf '\033[36m')   # calm cyan
   G=$(tput setaf 2 2>/dev/null || printf '\033[32m')   # success green
@@ -22,50 +17,39 @@ if [[ -t 1 ]]; then
 else
   C="" G="" Y="" R="" B="" N=""
 fi
+## (trimmed)
 
-readonly -a STABLE_POETRY=(
-  "Because 'works on my machine' should work on ALL machines. Yes, even Jenkins."
-  "Dependencies that don't require a PhD in YAML archaeology."
-  "It's like Docker, but your laptop battery doesn't burst into flames."
-  "Finally, an environment that survives the 'npm install' boss fight."
-  "Your dotfiles, but they actually work when you switch laptops at 2 AM."
-  "No more 'let me share my screen' during onboarding. Just... flox activate."
-  "Kubernetes at home? Nah. This? This sparks joy."
-   "Small, reliable dev environments that just work."
-)
-
-readonly -a NIGHTLY_POETRY=(
-  "Nightly builds: for when 'stable' sounds too much like your relationships."
-  "YOLO-driven development. We merge to main and pray."
-  "Fresh code, hot off the CI/CD pipeline — unit tests TBD."
-  "Production is just nightly with more users, change my mind."
-  "Warning: May cause random Slack pings at 3 AM. Worth it."
-  "If it compiles, we ship it. That's the nightly way."
-  "Bug fixes from the future, bugs from the present. Perfectly balanced."
-)
-
-# ────────────────────────────────────────
-#  Utility functions
-# ────────────────────────────────────────
+# Utility functions
 say()       { printf '%b\n' "${C}$*${N}"; }
 success()   { printf '%b\n' "${G}✓ $*${N}"; }
 warn()      { printf '%b\n' "${Y}⚠ $*${N}" >&2; }
 cry()       { printf '%b\n' "${R}✗ $*${N}" >&2; exit 1; }
 
-random_line() {
-  local -a arr=("$@")
-  local line
-  line="${arr[RANDOM % ${#arr[@]}]}"
-  # Trim leading/trailing whitespace
-  line="${line#${line%%[![:space:]]*}}"
-  line="${line%${line##*[![:space:]]}}"
-  printf '%s' "$line"
-}
-
 # Check for available commands
 has() { command -v "$1" >/dev/null 2>&1; }
 
-# Download helper with curl/wget fallback and retries for robustness
+TMPFILES=()
+cleanup_tmpfiles() {
+  local f
+  for f in "${TMPFILES[@]:-}"; do
+    rm -f "$f" 2>/dev/null || true
+  done
+}
+trap cleanup_tmpfiles EXIT
+
+mktempfile() {
+  local f
+  if has mktemp; then
+    f="$(mktemp 2>/dev/null || true)"
+  fi
+  if [ -z "${f:-}" ]; then
+    f="/tmp/flox.$RANDOM.$$"
+    : >"$f" 2>/dev/null || true
+  fi
+  TMPFILES+=("$f")
+  printf '%s' "$f"
+}
+
 download_to() {
   local url="$1" out="$2"
   if has curl; then
@@ -75,29 +59,12 @@ download_to() {
     wget -q -O "$out" "$url"
     return $?
   else
+    warn "No downloader found (curl or wget required)"
     return 127
   fi
 }
 
-usage() {
-  cat <<EOF
-Usage: ${0##*/} [OPTIONS]
-
-Install Flox — reproducible environments that travel with you.
-
-Options:
-  --nightly     Install nightly build instead of stable
-  --help, -h    Show this help message
-
-Environment Variables:
-  FLOX_CHANNEL  Set to 'nightly' for nightly builds
-
-Examples:
-  curl -fsSL https://get.flox.dev | bash
-  curl -fsSL https://get.flox.dev | bash -s -- --nightly
-EOF
-  exit 0
-}
+## Non-interactive installer (minimal)
 
 detect_arch() {
   local arch
@@ -109,47 +76,22 @@ detect_arch() {
   esac
 }
 
-# ────────────────────────────────────────
-#  Parse arguments & configure channel
-# ────────────────────────────────────────
-CHANNEL="${FLOX_CHANNEL:-stable}"
+# Channel (stable only)
+CHANNEL="stable"
 
-for arg in "$@"; do
-  case "$arg" in
-    --nightly)  CHANNEL="nightly" ;;
-    --help|-h)  usage ;;
-    *)          warn "Unknown option: $arg" ;;
-  esac
-done
-
-if [[ $CHANNEL == "nightly" ]]; then
-  POETRY=("${NIGHTLY_POETRY[@]}")
-else
-  CHANNEL="stable"
-  POETRY=("${STABLE_POETRY[@]}")
-fi
-
-# ────────────────────────────────────────
-#  Display banner
-# ────────────────────────────────────────
+# Display banner
 clear 2>/dev/null || true
 
 cat <<EOF
 ${C}┌────────────────────────────────────────────┐${N}
-  ${B}Flox${N} — dev environments that travel with you
-  ${C}$(random_line "${POETRY[@]}")${N}
+  ${B}Flox — reproducible dev environments${N}
 ${C}└────────────────────────────────────────────┘${N}
 EOF
 
 say "Channel: ${B}${CHANNEL}${N}"
 
-# ────────────────────────────────────────
-#  Setup & cleanup
-# ────────────────────────────────────────
-# Use a temporary directory so we can control the downloaded filename
-tmpdir=$(mktemp -d)
-cleanup() { rm -rf "$tmpdir"; }
-trap cleanup EXIT INT TERM
+# Setup & cleanup
+## Temp files handled via TMPFILES / mktempfile
 
 # Prefer sudo when not running as root
 if [[ $(id -u) -eq 0 ]]; then
@@ -158,9 +100,7 @@ else
   SUDO="sudo"
 fi
 
-# ────────────────────────────────────────
-#  Installation
-# ────────────────────────────────────────
+# Installation
 os=$(uname -s | tr '[:upper:]' '[:lower:]')
 arch=$(detect_arch)
 
@@ -168,9 +108,12 @@ case "$os" in
   darwin)
     if ! command -v brew &>/dev/null; then
       warn "Homebrew not found — inviting it over…"
-      NONINTERACTIVE=1 /bin/bash -c \
-        "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
-        || cry "Homebrew setup didn't finish. See https://brew.sh"
+      hb_tmp="$(mktempfile)"
+      if download_to "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh" "$hb_tmp"; then
+        NONINTERACTIVE=1 /bin/bash "$hb_tmp" || cry "Homebrew setup didn't finish. See https://brew.sh"
+      else
+        cry "Failed to download Homebrew bootstrap script"
+      fi
 
       # Source brew environment for both possible install locations
       for brew_path in /opt/homebrew/bin/brew /usr/local/bin/brew; do
@@ -197,15 +140,13 @@ case "$os" in
       suffix="rpm"
       install_cmd="sudo rpm -ivh"
       # Import GPG key for RPM-based systems
-      tmpkey="${tmpdir}/flox-archive-keyring.asc"
+      tmpkey="$(mktempfile)"
       if download_to "${channel_url}/rpm/flox-archive-keyring.asc" "$tmpkey" 2>/dev/null; then
         if $SUDO rpm --import "$tmpkey" 2>/dev/null; then
           success "GPG key imported"
         else
           warn "GPG key import skipped (import failed)"
         fi
-      else
-        warn "GPG key download skipped (common for nightly)"
       fi
     else
       family="unknown"
@@ -223,8 +164,8 @@ Quick manual steps:
     fi
 
     # Ensure the downloaded file has a proper extension so installers
-    # like `apt` accept it. We'll write into our tempdir with a name.
-    tmp="${tmpdir}/flox.${suffix}"
+    # like `apt` accept it. Create a temp file for the package.
+    tmp="$(mktempfile)"
 
 
     # Try architecture-specific package first, then generic
@@ -291,9 +232,7 @@ Manual options:
     ;;
 esac
 
-# ────────────────────────────────────────
-#  Victory lap
-# ────────────────────────────────────────
+# Victory lap
 if command -v flox &>/dev/null; then
   success "Flox is ready!"
   flox --version | sed 's/^/  /'
@@ -304,7 +243,9 @@ if command -v flox &>/dev/null; then
   printf '  %shello%s              # "Hello, world!"\n' "$C" "$N"
   printf '  %sflox remove hello%s  # clean up\n' "$C" "$N"
   printf '\n'
-  say "$(random_line "${POETRY[@]}")"
+  say "Enjoy flox!"
+  
+  
 else
   warn "'flox' not found in PATH yet. Restart your shell or check the output above."
 fi
