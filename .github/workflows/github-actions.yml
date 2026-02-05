@@ -6,20 +6,40 @@ on: [push]
 
 jobs:
   install:
-    name: Install on ${{ matrix.os }}
+    name: Install on ${{ matrix.name }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+        include:
+          - name: ubuntu
+            runs_on: ubuntu-latest
+            type: deb
+          - name: macos
+            runs_on: macos-latest
+            type: darwin
+          - name: fedora
+            runs_on: ubuntu-latest
+            type: rpm
+          - name: ubuntu-arm64
+            runs_on: ubuntu-24.04-arm
+            type: deb
+    runs-on: ${{ matrix.runs_on }}
     steps:
       - name: Check out repository code
         uses: actions/checkout@v5
 
-      - name: Run install.sh (stable)
+      - name: Run install.sh (stable) on Debian/macOS
+        if: matrix.type != 'rpm'
         run: |
           bash install.sh
 
-      - name: Verify flox is available
+      - name: Run install.sh (RPM path inside Fedora container)
+        if: matrix.type == 'rpm'
+        run: |
+          docker run --rm -v "${{ github.workspace }}":/workspace -w /workspace registry.fedoraproject.org/fedora:latest \
+            /bin/bash -eux -c "dnf -y install curl && bash install.sh && flox --version"
+
+      - name: Verify flox is available (host)
+        if: matrix.type != 'rpm'
         run: |
           command -v flox
           flox --version
