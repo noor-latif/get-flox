@@ -17,18 +17,18 @@ jobs:
           - name: ubuntu-22.04
             runs_on: ubuntu-22.04
             type: deb
-          - name: ubuntu-24.04-arm64
-            runs_on: ubuntu-24.04-arm64
+          - name: ubuntu-24.04-arm
+            runs_on: ubuntu-24.04-arm
             type: deb
-          - name: ubuntu-22.04-arm64
-            runs_on: ubuntu-22.04-arm64
+          - name: ubuntu-22.04-arm
+            runs_on: ubuntu-22.04-arm
             type: deb
           - name: macos-15-arm64
-            runs_on: macos-latest
+            runs_on: macos-15
             type: darwin
             arch: aarch64
           - name: macos-15-intel
-            runs_on: macos-15
+            runs_on: macos-15-intel
             type: darwin
           - name: macos-14-arm64
             runs_on: macos-14
@@ -37,8 +37,8 @@ jobs:
           - name: fedora-x86_64
             runs_on: ubuntu-latest
             type: rpm
-          - name: fedora-arm64
-            runs_on: ubuntu-24.04-arm64
+          - name: fedora-arm
+            runs_on: ubuntu-24.04-arm
             type: rpm
             
     runs-on: ${{ matrix.runs_on }}
@@ -68,7 +68,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runs_on: [ubuntu-latest, ubuntu-24.04-arm64]
+        runs_on: [ubuntu-latest, ubuntu-24.04-arm]
     runs-on: ${{ matrix.runs_on }}
     steps:
       - name: Check out repository
