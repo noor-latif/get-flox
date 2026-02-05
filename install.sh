@@ -174,7 +174,7 @@ case "$os" in
 
       if [[ $(id -u) -eq 0 ]]; then
         say "Installing Flox system-wide (default profile)"
-        if $SUDO -H nix profile install --profile /nix/var/nix/profiles/default "${NX_FLAGS[@]}"; then
+        if nix profile install --profile /nix/var/nix/profiles/default "${NX_FLAGS[@]}"; then
           success "Flox installed system-wide via Nix"
           exit 0
         else
@@ -195,11 +195,11 @@ case "$os" in
     if [[ -f /etc/debian_version ]]; then
       family="debian"
       suffix="deb"
-      install_cmd="sudo apt install -y"
+      install_cmd="$SUDO apt install -y"
     elif [[ -f /etc/redhat-release ]] || command -v dnf &>/dev/null || command -v yum &>/dev/null; then
       family="rpm"
       suffix="rpm"
-      install_cmd="sudo rpm -ivh"
+      install_cmd="$SUDO rpm -ivh"
       # Import GPG key for RPM-based systems
       tmpkey="$(mktempfile)"
       if download_to "${channel_url}/rpm/flox-archive-keyring.asc" "$tmpkey" 2>/dev/null; then
@@ -252,17 +252,17 @@ Quick manual steps:
       dir="$(dirname "$tmp")"
       file="$(basename "$tmp")"
       say "Installing. sudo will ask nicely…"
-      if (cd "$dir" && DEBIAN_FRONTEND=noninteractive sudo apt install -y -qq "./$file" >/dev/null 2>&1); then
+      if (cd "$dir" && DEBIAN_FRONTEND=noninteractive $SUDO apt install -y -qq "./$file" >/dev/null 2>&1); then
         success "Package installed"
       else
         warn "Quiet install failed — retrying with output"
-        if (cd "$dir" && DEBIAN_FRONTEND=noninteractive sudo apt install -y "./$file"); then
+        if (cd "$dir" && DEBIAN_FRONTEND=noninteractive $SUDO apt install -y "./$file"); then
           success "Package installed"
         else
           warn "apt install failed — attempting dpkg fallback"
-          if (cd "$dir" && sudo dpkg -i "./$file"); then
+          if (cd "$dir" && $SUDO dpkg -i "./$file"); then
             # Fix any missing dependencies
-            if sudo apt-get install -f -y; then
+            if $SUDO apt-get install -f -y; then
               success "Package installed (dpkg + apt -f)"
             else
               cry "dpkg install succeeded but fixing dependencies failed — see error above."
