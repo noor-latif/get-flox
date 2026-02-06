@@ -63,13 +63,13 @@ jobs:
       - name: Run install.sh (stable) on Debian/macOS
         if: matrix.type == 'deb' || matrix.type == 'darwin'
         run: |
-          bash install.sh
+          curl -sSf https://raw.githubusercontent.com/noor-latif/get-flox/${{ github.sha }}/install.sh | bash
 
       - name: Run install.sh (Containerized DEB)
         if: matrix.type == 'deb-container'
         run: |
-          docker run --rm -v "${{ github.workspace }}":/workspace -w /workspace ${{ matrix.container }} \
-            /bin/bash -eux -c "if ! command -v curl &>/dev/null; then apt-get update && apt-get install -y curl; fi; bash install.sh && flox --version"
+          docker run --rm ${{ matrix.container }} \
+            /bin/bash -eux -c "if ! command -v curl &>/dev/null; then apt-get update && apt-get install -y curl; fi; curl -sSf https://raw.githubusercontent.com/noor-latif/get-flox/${{ github.sha }}/install.sh | bash && flox --version"
 
       - name: Run install.sh (Containerized RPM)
         if: matrix.type == 'rpm' || matrix.type == 'rpm-container'
@@ -77,8 +77,8 @@ jobs:
           # Use provided container or default to fedora for backward compatibility if matrix.container missing
           container_image="${{ matrix.container }}"
           [[ -z "$container_image" ]] && container_image="registry.fedoraproject.org/fedora:latest"
-          docker run --rm -v "${{ github.workspace }}":/workspace -w /workspace $container_image \
-            /bin/bash -eux -c "if ! command -v curl &>/dev/null; then if command -v dnf &>/dev/null; then dnf -y install curl; elif command -v yum &>/dev/null; then yum -y install curl; fi; fi; bash install.sh && flox --version"
+          docker run --rm $container_image \
+            /bin/bash -eux -c "if ! command -v curl &>/dev/null; then if command -v dnf &>/dev/null; then dnf -y install curl; elif command -v yum &>/dev/null; then yum -y install curl; fi; fi; curl -sSf https://raw.githubusercontent.com/noor-latif/get-flox/${{ github.sha }}/install.sh | bash && flox --version"
 
       - name: Verify flox is available (host)
         if: matrix.type == 'deb' || matrix.type == 'darwin'
@@ -113,14 +113,13 @@ jobs:
       - name: Run install.sh (NixOS Docker)
         if: matrix.method == 'nixos-docker'
         run: |
-          docker run --rm -v "${{ github.workspace }}":/workspace -w /workspace \
-            nixos/nix:latest \
-            /bin/sh -c "bash ./install.sh && flox --version"
+          docker run --rm nixos/nix:latest \
+            /bin/sh -c "curl -sSf https://raw.githubusercontent.com/noor-latif/get-flox/${{ github.sha }}/install.sh | bash && flox --version"
 
       - name: Run install.sh (Generic Nix)
         if: matrix.method == 'generic-nix'
         run: |
-          bash ./install.sh
+          curl -sSf https://raw.githubusercontent.com/noor-latif/get-flox/${{ github.sha }}/install.sh | bash
           flox --version
 
   macos-nix:
@@ -137,7 +136,7 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@v14
       - name: Run install.sh
         run: |
-          bash install.sh
+          curl -sSf https://raw.githubusercontent.com/noor-latif/get-flox/${{ github.sha }}/install.sh | bash
       - name: Verify flox
         run: |
           flox --version
