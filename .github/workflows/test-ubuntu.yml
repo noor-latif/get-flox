@@ -1,0 +1,35 @@
+name: Ubuntu
+
+on: [push]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Install on ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu-24.04
+            runs_on: ubuntu-24.04
+          - name: ubuntu-22.04
+            runs_on: ubuntu-22.04
+          - name: ubuntu-24.04-arm
+            runs_on: ubuntu-24.04-arm
+          - name: ubuntu-22.04-arm
+            runs_on: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runs_on }}
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v5
+
+      - name: Run install.sh
+        run: |
+          curl -sSf https://raw.githubusercontent.com/noor-latif/get-flox/${{ github.sha }}/install.sh | bash
+
+      - name: Verify flox
+        run: |
+          command -v flox
+          flox --version

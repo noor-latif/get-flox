@@ -1,0 +1,41 @@
+name: Publish install.sh Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'install.sh'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Force-update the "latest" tag
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git tag -f latest
+          git push -f origin latest
+
+      - name: Create or update GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: latest
+          name: "Latest Release"
+          body: |
+            This release always contains the most recent version of `install.sh`.
+
+            **Install:**
+            ```bash
+            curl -sSfL https://github.com/noor-latif/get-flox/releases/download/latest/install.sh | bash
+            ```
+          draft: false
+          prerelease: false
+          artifacts: install.sh
+          allowUpdates: true
+          makeLatest: true

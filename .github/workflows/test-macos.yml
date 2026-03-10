@@ -1,0 +1,33 @@
+name: macOS
+
+on: [push]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Install on ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macos-15-arm64
+            runs_on: macos-15
+          - name: macos-15-intel
+            runs_on: macos-15-intel
+          - name: macos-14-arm64
+            runs_on: macos-14
+    runs-on: ${{ matrix.runs_on }}
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v5
+
+      - name: Run install.sh
+        run: |
+          curl -sSf https://raw.githubusercontent.com/noor-latif/get-flox/${{ github.sha }}/install.sh | bash
+
+      - name: Verify flox
+        run: |
+          command -v flox
+          flox --version

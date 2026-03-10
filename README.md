@@ -1,5 +1,14 @@
 # 📥 get-flox
 
+[![Downloads](https://img.shields.io/github/downloads/noor-latif/get-flox/total?label=downloads&color=blue)](https://github.com/noor-latif/get-flox/releases)
+[![Ubuntu](https://github.com/noor-latif/get-flox/actions/workflows/test-ubuntu.yml/badge.svg)](https://github.com/noor-latif/get-flox/actions/workflows/test-ubuntu.yml)
+[![Debian](https://github.com/noor-latif/get-flox/actions/workflows/test-debian.yml/badge.svg)](https://github.com/noor-latif/get-flox/actions/workflows/test-debian.yml)
+[![Fedora](https://github.com/noor-latif/get-flox/actions/workflows/test-fedora.yml/badge.svg)](https://github.com/noor-latif/get-flox/actions/workflows/test-fedora.yml)
+[![Amazon Linux](https://github.com/noor-latif/get-flox/actions/workflows/test-amazonlinux.yml/badge.svg)](https://github.com/noor-latif/get-flox/actions/workflows/test-amazonlinux.yml)
+[![macOS](https://github.com/noor-latif/get-flox/actions/workflows/test-macos.yml/badge.svg)](https://github.com/noor-latif/get-flox/actions/workflows/test-macos.yml)
+[![NixOS](https://github.com/noor-latif/get-flox/actions/workflows/test-nixos.yml/badge.svg)](https://github.com/noor-latif/get-flox/actions/workflows/test-nixos.yml)
+[![macOS + Nix](https://github.com/noor-latif/get-flox/actions/workflows/test-macos-nix.yml/badge.svg)](https://github.com/noor-latif/get-flox/actions/workflows/test-macos-nix.yml)
+
 A polished, one-liner installer for [Flox](https://flox.dev) — the tool for reproducible development environments.
 
 Built to solve [floxdocs#409](https://github.com/flox/floxdocs/issues/409), this script provides a unified installation experience across multiple platforms and package managers.
@@ -9,7 +18,7 @@ Built to solve [floxdocs#409](https://github.com/flox/floxdocs/issues/409), this
 To install Flox, run the following command in your terminal:
 
 ```bash
-curl -sSf https://raw.githubusercontent.com/noor-latif/get-flox/refs/heads/main/install.sh | bash
+curl -sSfL https://github.com/noor-latif/get-flox/releases/download/latest/install.sh | bash
 ```
 
 ## ✨ Features

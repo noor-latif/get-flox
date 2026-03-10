@@ -1,0 +1,19 @@
+name: Debian
+
+on: [push]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Install on debian-12
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v5
+
+      - name: Run install.sh (Containerized)
+        run: |
+          docker run --rm debian:12 \
+            /bin/bash -eux -c "if ! command -v curl &>/dev/null; then apt-get update && apt-get install -y curl; fi; curl -sSf https://raw.githubusercontent.com/noor-latif/get-flox/${{ github.sha }}/install.sh | bash && flox --version"
