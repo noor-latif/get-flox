@@ -18,13 +18,6 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Force-update the "latest" tag
-        run: |
-          git config user.email "actions@github.com"
-          git config user.name "GitHub Actions"
-          git tag -f latest
-          git push -f origin latest
-
       - name: Create or update GitHub Release
         uses: ncipollo/release-action@v1
         with:
