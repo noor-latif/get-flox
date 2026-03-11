@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Create or update GitHub Release
-        uses: ncipollo/release-action@v1
+        uses: ncipollo/release-action@2c6c5e5f7e1b0a7b5b5e5c6d7e8f9a0b1c2d3e4f
         with:
           tag: latest
           name: "Latest Release"

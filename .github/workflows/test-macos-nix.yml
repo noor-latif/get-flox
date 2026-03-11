@@ -14,9 +14,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     if: ${{ !github.event.pull_request || github.event.pull_request.head.repo.full_name == 'noor-latif/get-flox' }}
+    timeout-minutes: 15
     name: Install on ${{ matrix.runs_on }} with Determinate Nix
     strategy:
       fail-fast: false
@@ -25,7 +30,7 @@ jobs:
     runs-on: ${{ matrix.runs_on }}
     steps:
       - name: Install Determinate Nix
-        uses: DeterminateSystems/nix-installer-action@v14
+        uses: DeterminateSystems/nix-installer-action@7ecf22d8547128d1e8317f20a604c3e2d3125e1a
 
       - name: Run install.sh
         run: |

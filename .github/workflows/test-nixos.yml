@@ -14,9 +14,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     if: ${{ !github.event.pull_request || github.event.pull_request.head.repo.full_name == 'noor-latif/get-flox' }}
+    timeout-minutes: 15
     name: Install on ${{ matrix.name }}
     strategy:
       fail-fast: false
@@ -35,7 +40,7 @@ jobs:
     steps:
       - name: Install Nix (for generic-nix)
         if: matrix.method == 'generic-nix'
-        uses: DeterminateSystems/nix-installer-action@v14
+        uses: DeterminateSystems/nix-installer-action@7ecf22d8547128d1e8317f20a604c3e2d3125e1a
 
       - name: Run install.sh (NixOS Docker)
         if: matrix.method == 'nixos-docker'
