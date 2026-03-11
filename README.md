@@ -59,3 +59,8 @@ The script performs the following steps:
 ## 🤝 Contributing
 
 Contributions are welcome! If you encounter any issues or want to add support for a new platform, feel free to open an issue or submit a pull request.
+
+## Known Limitations
+
+- **Re-installation on systems with existing Flox**: If Flox is already installed, the script may incorrectly select the Nix installation method, resulting in a non-critical error. This does not break your existing Flox installation.
+
