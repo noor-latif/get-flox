@@ -1,6 +1,9 @@
 name: macOS + Nix
 
-on: [push]
+on:
+  push:
+    tags-ignore:
+      - latest
 
 permissions:
   contents: read
