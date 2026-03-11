@@ -1,6 +1,9 @@
 name: Ubuntu
 
-on: [push]
+on:
+  push:
+    tags-ignore:
+      - latest
 
 permissions:
   contents: read
