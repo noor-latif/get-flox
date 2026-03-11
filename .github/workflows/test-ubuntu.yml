@@ -25,9 +25,6 @@ jobs:
             runs_on: ubuntu-22.04-arm
     runs-on: ${{ matrix.runs_on }}
     steps:
-      - name: Check out repository code
-        uses: actions/checkout@v5
-
       - name: Run install.sh
         run: |
           curl -sSf https://raw.githubusercontent.com/noor-latif/get-flox/${{ github.sha }}/install.sh | bash
