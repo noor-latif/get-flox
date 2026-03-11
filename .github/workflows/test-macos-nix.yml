@@ -28,6 +28,8 @@ jobs:
       matrix:
         runs_on: [macos-26, macos-15, macos-14]
     runs-on: ${{ matrix.runs_on }}
+    env:
+      NIX_CONFIG: "access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}"
     steps:
       - name: Install Determinate Nix
         uses: DeterminateSystems/nix-installer-action@v14

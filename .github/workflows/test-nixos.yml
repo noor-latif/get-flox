@@ -37,6 +37,8 @@ jobs:
             runs_on: ubuntu-latest
             method: generic-nix
     runs-on: ${{ matrix.runs_on }}
+    env:
+      NIX_CONFIG: "access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}"
     steps:
       - name: Install Nix (for generic-nix)
         if: matrix.method == 'generic-nix'
@@ -46,7 +48,7 @@ jobs:
         if: matrix.method == 'nixos-docker'
         run: |
           REF="${{ github.event.pull_request.head.ref || github.ref_name }}"
-          docker run --rm nixos/nix:latest \
+          docker run --rm -e NIX_CONFIG="access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}" nixos/nix:latest \
             /bin/sh -c "curl -sSf https://raw.githubusercontent.com/noor-latif/get-flox/$REF/install.sh | bash && flox --version"
 
       - name: Run install.sh (Generic Nix)
