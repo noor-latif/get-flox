@@ -2,14 +2,21 @@ name: Debian
 
 on:
   push:
-    tags-ignore:
-      - latest
+    branches: [main, copilot/**]
+    paths:
+      - 'install.sh'
+      - '.github/workflows/test-debian.yml'
+  pull_request:
+    paths:
+      - 'install.sh'
+      - '.github/workflows/test-debian.yml'
 
 permissions:
   contents: read
 
 jobs:
   test:
+    if: ${{ !github.event.pull_request || github.event.pull_request.head.repo.full_name == 'noor-latif/get-flox' }}
     name: Install on debian-12
     runs-on: ubuntu-latest
     steps:
@@ -18,5 +25,6 @@ jobs:
 
       - name: Run install.sh (Containerized)
         run: |
+          REF="${{ github.event.pull_request.head.ref || github.ref_name }}"
           docker run --rm debian:12 \
-            /bin/bash -eux -c "if ! command -v curl &>/dev/null; then apt-get update && apt-get install -y curl; fi; curl -sSf https://raw.githubusercontent.com/noor-latif/get-flox/${{ github.sha }}/install.sh | bash && flox --version"
+            /bin/bash -eux -c "if ! command -v curl &>/dev/null; then apt-get update && apt-get install -y curl; fi; curl -sSf https://raw.githubusercontent.com/noor-latif/get-flox/$REF/install.sh | bash && flox --version"
