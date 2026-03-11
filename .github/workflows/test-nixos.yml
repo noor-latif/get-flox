@@ -1,0 +1,57 @@
+name: NixOS
+
+on:
+  push:
+    branches: [main, copilot/**]
+    paths:
+      - 'install.sh'
+      - '.github/workflows/test-nixos.yml'
+  pull_request:
+    paths:
+      - 'install.sh'
+      - '.github/workflows/test-nixos.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    if: ${{ !github.event.pull_request || github.event.pull_request.head.repo.full_name == 'noor-latif/get-flox' }}
+    timeout-minutes: 15
+    name: Install on ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: NixOS-x86_64
+            runs_on: ubuntu-latest
+            method: nixos-docker
+          - name: NixOS-arm64
+            runs_on: ubuntu-24.04-arm
+            method: nixos-docker
+          - name: Ubuntu-Generic-Nix
+            runs_on: ubuntu-latest
+            method: generic-nix
+    runs-on: ${{ matrix.runs_on }}
+    steps:
+      - name: Install Nix (for generic-nix)
+        if: matrix.method == 'generic-nix'
+        uses: DeterminateSystems/nix-installer-action@v14
+
+      - name: Run install.sh (NixOS Docker)
+        if: matrix.method == 'nixos-docker'
+        run: |
+          REF="${{ github.event.pull_request.head.ref || github.ref_name }}"
+          docker run --rm nixos/nix:latest \
+            /bin/sh -c "curl -sSf https://raw.githubusercontent.com/noor-latif/get-flox/$REF/install.sh | bash && flox --version"
+
+      - name: Run install.sh (Generic Nix)
+        if: matrix.method == 'generic-nix'
+        run: |
+          REF="${{ github.event.pull_request.head.ref || github.ref_name }}"
+          curl -sSf https://raw.githubusercontent.com/noor-latif/get-flox/$REF/install.sh | bash
+          flox --version

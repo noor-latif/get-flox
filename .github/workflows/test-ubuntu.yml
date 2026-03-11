@@ -1,0 +1,48 @@
+name: Ubuntu
+
+on:
+  push:
+    branches: [main, copilot/**]
+    paths:
+      - 'install.sh'
+      - '.github/workflows/test-ubuntu.yml'
+  pull_request:
+    paths:
+      - 'install.sh'
+      - '.github/workflows/test-ubuntu.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    if: ${{ !github.event.pull_request || github.event.pull_request.head.repo.full_name == 'noor-latif/get-flox' }}
+    timeout-minutes: 15
+    name: Install on ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu-24.04
+            runs_on: ubuntu-24.04
+          - name: ubuntu-22.04
+            runs_on: ubuntu-22.04
+          - name: ubuntu-24.04-arm
+            runs_on: ubuntu-24.04-arm
+          - name: ubuntu-22.04-arm
+            runs_on: ubuntu-22.04-arm
+    runs-on: ${{ matrix.runs_on }}
+    steps:
+      - name: Run install.sh
+        run: |
+          REF="${{ github.event.pull_request.head.ref || github.ref_name }}"
+          curl -sSf https://raw.githubusercontent.com/noor-latif/get-flox/$REF/install.sh | bash
+
+      - name: Verify flox
+        run: |
+          command -v flox
+          flox --version

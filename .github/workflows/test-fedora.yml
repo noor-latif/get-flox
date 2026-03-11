@@ -1,0 +1,40 @@
+name: Fedora
+
+on:
+  push:
+    branches: [main, copilot/**]
+    paths:
+      - 'install.sh'
+      - '.github/workflows/test-fedora.yml'
+  pull_request:
+    paths:
+      - 'install.sh'
+      - '.github/workflows/test-fedora.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    if: ${{ !github.event.pull_request || github.event.pull_request.head.repo.full_name == 'noor-latif/get-flox' }}
+    timeout-minutes: 15
+    name: Install on ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: fedora-x86_64
+            runs_on: ubuntu-latest
+          - name: fedora-arm
+            runs_on: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runs_on }}
+    steps:
+      - name: Run install.sh (Containerized)
+        run: |
+          REF="${{ github.event.pull_request.head.ref || github.ref_name }}"
+          docker run --rm registry.fedoraproject.org/fedora:latest \
+            /bin/bash -eux -c "if ! command -v curl &>/dev/null; then dnf -y install curl; fi; curl -sSf https://raw.githubusercontent.com/noor-latif/get-flox/$REF/install.sh | bash && flox --version"

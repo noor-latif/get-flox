@@ -1,0 +1,38 @@
+name: Publish install.sh Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'install.sh'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: ${{ !github.event.pull_request }}
+    concurrency:
+      group: release-latest
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Create or update GitHub Release
+        uses: ncipollo/release-action@2c6c5e5f7e1b0a7b5b5e5c6d7e8f9a0b1c2d3e4f
+        with:
+          tag: latest
+          name: "Latest Release"
+          body: |
+            This release always contains the most recent version of `install.sh`.
+
+            **Install:**
+            ```bash
+            curl -sSfL https://github.com/noor-latif/get-flox/releases/download/latest/install.sh | bash
+            ```
+          draft: false
+          prerelease: false
+          artifacts: install.sh
+          allowUpdates: true
+          makeLatest: true
