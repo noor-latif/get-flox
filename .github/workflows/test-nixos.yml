@@ -40,7 +40,7 @@ jobs:
     steps:
       - name: Install Nix (for generic-nix)
         if: matrix.method == 'generic-nix'
-        uses: DeterminateSystems/nix-installer-action@7ecf22d8547128d1e8317f20a604c3e2d3125e1a
+        uses: DeterminateSystems/nix-installer-action@v14
 
       - name: Run install.sh (NixOS Docker)
         if: matrix.method == 'nixos-docker'
