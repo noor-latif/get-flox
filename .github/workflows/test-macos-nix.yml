@@ -24,9 +24,6 @@ jobs:
         runs_on: [macos-26, macos-15, macos-14]
     runs-on: ${{ matrix.runs_on }}
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v5
-
       - name: Install Determinate Nix
         uses: DeterminateSystems/nix-installer-action@v14
 

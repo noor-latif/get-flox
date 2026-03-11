@@ -33,9 +33,6 @@ jobs:
             method: generic-nix
     runs-on: ${{ matrix.runs_on }}
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v5
-
       - name: Install Nix (for generic-nix)
         if: matrix.method == 'generic-nix'
         uses: DeterminateSystems/nix-installer-action@v14
