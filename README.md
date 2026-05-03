@@ -18,7 +18,7 @@ Built to solve [floxdocs#409](https://github.com/flox/floxdocs/issues/409), this
 To install Flox, run the following command in your terminal:
 
 ```bash
-curl -sSfL https://github.com/noor-latif/get-flox/releases/download/latest/install.sh | bash
+curl -sSfL https://raw.githubusercontent.com/noor-latif/get-flox/refs/heads/main/install.sh | bash
 ```
 
 ## ✨ Features
